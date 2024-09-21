@@ -47,7 +47,7 @@ class Binance {
         for (let i = seconds; i > 0; i--) {
             const timestamp = new Date().toLocaleTimeString();
             readline.cursorTo(process.stdout, 0);
-            process.stdout.write(`[${timestamp}] [*] Chờ ${i} giây để tiếp tục...`);
+            process.stdout.write(`[${timestamp}] [*] Waiting ${i} seconds to continue...`);
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
         readline.cursorTo(process.stdout, 0);
@@ -100,19 +100,19 @@ class Binance {
             this.game_response = response.data;
 
             if (response.data.code === '000000') {
-                this.log("Bắt đầu game thành công", 'success');
+                this.log("Game started successfully", 'success');
                 return true;
             }
 
             if (response.data.code === '116002') {
-                this.log("Không đủ lượt chơi!", 'warning');
+                this.log("Not enough attempts!", 'warning');
             } else {
-                this.log("Lỗi khi bắt đầu game!", 'error');
+                this.log("Error starting the game!", 'error');
             }
 
             return false;
         } catch (error) {
-            this.log(`Không thể bắt đầu game: ${error.message}`, 'error');
+            this.log(`Cannot start the game: ${error.message}`, 'error');
             return false;
         }
     }
@@ -123,14 +123,14 @@ class Binance {
 
             if (response.data.message === 'success') {
                 this.game = response.data.game;
-                this.log("Nhận dữ liệu game thành công", 'success');
+                this.log("Game data received successfully", 'success');
                 return true;
             }
 
             this.log(response.data.message, 'warning');
             return false;
         } catch (error) {
-            this.log(`Lỗi khi nhận dữ liệu game: ${error.message}`, 'error');
+            this.log(`Error receiving game data: ${error.message}`, 'error');
             return false;
         }
     }
@@ -148,14 +148,14 @@ class Binance {
             );
 
             if (response.data.code === '000000' && response.data.success) {
-                this.log(`Hoàn thành game thành công | Nhận được ${this.game.log} points`, 'custom');
+                this.log(`Game completed successfully | Earned ${this.game.log} points`, 'custom');
                 return true;
             }
 
-            this.log(`Không thể hoàn thành game: ${response.data.message}`, 'error');
+            this.log(`Cannot complete the game: ${response.data.message}`, 'error');
             return false;
         } catch (error) {
-            this.log(`Lỗi khi hoàn thành game: ${error.message}`, 'error');
+            this.log(`Error completing the game: ${error.message}`, 'error');
             return false;
         }
     }
@@ -173,7 +173,7 @@ class Binance {
             });
 
             if (response.data.code !== "000000" || !response.data.success) {
-                throw new Error(`Không thể lấy danh sách nhiệm vụ: ${response.data.message}`);
+                throw new Error(`Cannot retrieve task list: ${response.data.message}`);
             }
 
             const taskList = response.data.data.data[0].taskList.data;
@@ -183,7 +183,7 @@ class Binance {
             
             return resourceIds;
         } catch (error) {
-            this.log(`Không thể lấy danh sách nhiệm vụ: ${error.message}`, 'error');
+            this.log(`Cannot retrieve task list: ${error.message}`, 'error');
             return null;
         }
     }
@@ -202,16 +202,16 @@ class Binance {
             });
 
             if (response.data.code !== "000000" || !response.data.success) {
-                throw new Error(`Không thể hoàn thành nhiệm vụ: ${response.data.message}`);
+                throw new Error(`Cannot complete the task: ${response.data.message}`);
             }
 
             if (response.data.data.type) {
-                this.log(`Làm nhiệm vụ ${response.data.data.type} thành công!`, 'success');
+                this.log(`Successfully completed task ${response.data.data.type}!`, 'success');
             }
 
             return true;
         } catch (error) {
-            this.log(`Không thể hoàn thành nhiệm vụ: ${error.message}`, 'error');
+            this.log(`Cannot complete the task: ${error.message}`, 'error');
             return false;
         }
     }
@@ -227,9 +227,9 @@ class Binance {
             if (resourceId !== 2058) {
                 const success = await this.completeTask(accessToken, resourceId);
                 if (success) {
-                    this.log(`Đã hoàn thành nhiệm vụ: ${resourceId}`, 'success');
+                    this.log(`Completed task: ${resourceId}`, 'success');
                 } else {
-                    this.log(`Không thể hoàn thành nhiệm vụ: ${resourceId}`, 'warning');
+                    this.log(`Cannot complete task: ${resourceId}`, 'warning');
                 }
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
@@ -237,8 +237,8 @@ class Binance {
     }
 
     async playGameIfTicketsAvailable(queryString, accountIndex, firstName) {
-        console.log(`========== Tài khoản ${accountIndex} | ${firstName.green} ==========`);
-        
+        console.log(`========== Account ${accountIndex} | ${firstName.green} ==========`);
+
         const result = await this.callBinanceAPI(queryString);
         if (!result) return;
 
@@ -246,11 +246,11 @@ class Binance {
         const totalGrade = userInfo.metaInfo.totalGrade;
         let availableTickets = userInfo.metaInfo.totalAttempts;
 
-        this.log(`Tổng điểm: ${totalGrade}`);
-        this.log(`Vé đang có: ${availableTickets}`);
+        this.log(`Total points: ${totalGrade}`);
+        this.log(`Available tickets: ${availableTickets}`);
         
         while (availableTickets > 0) {
-            this.log(`Bắt đầu game với ${availableTickets} vé có sẵn`, 'info');
+            this.log(`Starting game with ${availableTickets} available tickets`, 'info');
             
             if (await this.startGame(accessToken)) {
                 if (await this.gameData()) {
@@ -258,16 +258,16 @@ class Binance {
                     
                     if (await this.completeGame(accessToken)) {
                         availableTickets--;
-                        this.log(`Vé còn lại: ${availableTickets}`, 'info');
+                        this.log(`Remaining tickets: ${availableTickets}`, 'info');
                     } else {
                         break;
                     }
                 } else {
-                    this.log("Không thể nhận dữ liệu game", 'error');
+                    this.log("Cannot retrieve game data", 'error');
                     break;
                 }
             } else {
-                this.log("Không thể bắt đầu trò chơi", 'error');
+                this.log("Cannot start the game", 'error');
                 break;
             }
 
@@ -277,7 +277,7 @@ class Binance {
         }
 
         if (availableTickets === 0) {
-            this.log("Đã sử dụng hết vé", 'success');
+            this.log("All tickets used up", 'success');
         }
     }
 
@@ -293,7 +293,7 @@ class Binance {
                 const queryString = data[i];
                 const userData = JSON.parse(decodeURIComponent(queryString.split('user=')[1].split('&')[0]));
                 const firstName = userData.first_name;
-                
+
                 await this.playGameIfTicketsAvailable(queryString, i + 1, firstName);
 
                 await new Promise(resolve => setTimeout(resolve, 1000));

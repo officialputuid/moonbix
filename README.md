@@ -1,4 +1,4 @@
-## Monbix
+## Moonbix
 ```bash
 git clone https://github.com/officialputuid/moonbix && cd moonbix && npm i
 ```
