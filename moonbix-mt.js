@@ -2,10 +2,12 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const colors = require('colors');
-const readline = require('readline');
+const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 
 class Binance {
-    constructor() {
+    constructor(accountIndex, queryString) {
+        this.accountIndex = accountIndex;
+        this.queryString = queryString;
         this.headers = {
             "Accept": "*/*",
             "Accept-Encoding": "gzip, deflate, br",
@@ -14,52 +16,62 @@ class Binance {
             "Origin": "https://www.binance.com",
             "Referer": "https://www.binance.com/vi/game/tg/moon-bix",
             "Sec-Ch-Ua": '"Not/A)Brand";v="99", "Google Chrome";v="115", "Chromium";v="115"',
-            "Sec-Ch-Ua-Mobile": "?0",
-            "Sec-Ch-Ua-Platform": '"Windows"',
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
+            "Sec-Ch-Ua-Mobile": "?1",
+            "Sec-Ch-Ua-Platform": '"Android"',
+            "User-Agent": this.getRandomAndroidUserAgent()
         };
-        this.axios = axios.create({ headers: this.headers });
         this.game_response = null;
         this.game = null;
     }
 
-    log(msg, type = 'info') {
+    getRandomAndroidUserAgent() {
+        const androidUserAgents = [
+            "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36",
+            "Mozilla/5.0 (Linux; Android 11; Pixel 4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Mobile Safari/537.36",
+            "Mozilla/5.0 (Linux; Android 12; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.62 Mobile Safari/537.36",
+            "Mozilla/5.0 (Linux; Android 11; OnePlus 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.164 Mobile Safari/537.36",
+            "Mozilla/5.0 (Linux; Android 10; Redmi Note 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Mobile Safari/537.36"
+        ];
+        return androidUserAgents[Math.floor(Math.random() * androidUserAgents.length)];
+    }
+
+    async log(msg, type = 'info') {
         const timestamp = new Date().toLocaleTimeString();
+        const accountPrefix = `[Account ${this.accountIndex + 1}]`;
+        let logMessage = '';
+        
         switch(type) {
             case 'success':
-                console.log(`[${timestamp}] [*] ${msg}`.green);
+                logMessage = `${accountPrefix} ${msg}`.green;
                 break;
-            case 'custom':
-                console.log(`[${timestamp}] [*] ${msg}`.magenta);
-                break;        
             case 'error':
-                console.log(`[${timestamp}] [!] ${msg}`.red);
+                logMessage = `${accountPrefix} ${msg}`.red;
                 break;
             case 'warning':
-                console.log(`[${timestamp}] [*] ${msg}`.yellow);
+                logMessage = `${accountPrefix} ${msg}`.yellow;
+                break;
+            case 'custom':
+                logMessage = `${accountPrefix} ${msg}`.magenta;
                 break;
             default:
-                console.log(`[${timestamp}] [*] ${msg}`);
+                logMessage = `${accountPrefix} ${msg}`.blue;
         }
+        
+        console.log(`[${timestamp}] ${logMessage}`);
     }
 
-    async countdown(seconds) {
-        for (let i = seconds; i > 0; i--) {
-            const timestamp = new Date().toLocaleTimeString();
-            readline.cursorTo(process.stdout, 0);
-            process.stdout.write(`[${timestamp}] [*] Waiting ${i} seconds to continue...`);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-        readline.cursorTo(process.stdout, 0);
-        readline.clearLine(process.stdout, 0);
+    createAxiosInstance() {
+        return axios.create({
+            headers: this.headers,
+        });
     }
 
-    async callBinanceAPI(queryString) {
+    async callBinanceAPI(queryString, axios) {
         const accessTokenUrl = "https://www.binance.com/bapi/growth/v1/friendly/growth-paas/third-party/access/accessToken";
         const userInfoUrl = "https://www.binance.com/bapi/growth/v1/friendly/growth-paas/mini-app-activity/third-party/user/user-info";
 
         try {
-            const accessTokenResponse = await this.axios.post(accessTokenUrl, {
+            const accessTokenResponse = await axios.post(accessTokenUrl, {
                 queryString: queryString,
                 socialType: "telegram"
             });
@@ -74,7 +86,7 @@ class Binance {
                 "X-Growth-Token": accessToken
             };
 
-            const userInfoResponse = await this.axios.post(userInfoUrl, {
+            const userInfoResponse = await axios.post(userInfoUrl, {
                 resourceId: 2056
             }, { headers: userInfoHeaders });
 
@@ -89,9 +101,9 @@ class Binance {
         }
     }
 
-    async startGame(accessToken) {
+    async startGame(accessToken, axios) {
         try {
-            const response = await this.axios.post(
+            const response = await axios.post(
                 'https://www.binance.com/bapi/growth/v1/friendly/growth-paas/mini-app-activity/third-party/game/start',
                 { resourceId: 2056 },
                 { headers: { ...this.headers, "X-Growth-Token": accessToken } }
@@ -100,7 +112,7 @@ class Binance {
             this.game_response = response.data;
 
             if (response.data.code === '000000') {
-                this.log("Game started successfully", 'success');
+                this.log("Start game successfully, do not close tool before completion", 'success');
                 return true;
             }
 
@@ -112,7 +124,7 @@ class Binance {
 
             return false;
         } catch (error) {
-            this.log(`Cannot start the game: ${error.message}`, 'error');
+            this.log(`Unable to start game: ${error.message}`, 'error');
             return false;
         }
     }
@@ -135,9 +147,9 @@ class Binance {
         }
     }
 
-    async completeGame(accessToken) {
+    async completeGame(accessToken, axios) {
         try {
-            const response = await this.axios.post(
+            const response = await axios.post(
                 'https://www.binance.com/bapi/growth/v1/friendly/growth-paas/mini-app-activity/third-party/game/complete',
                 {
                     resourceId: 2056,
@@ -160,10 +172,10 @@ class Binance {
         }
     }
 
-    async getTaskList(accessToken) {
+    async getTaskList(accessToken, axios) {
         const taskListUrl = "https://www.binance.com/bapi/growth/v1/friendly/growth-paas/mini-app-activity/third-party/task/list";
         try {
-            const response = await this.axios.post(taskListUrl, {
+            const response = await axios.post(taskListUrl, {
                 resourceId: 2056
             }, {
                 headers: {
@@ -188,10 +200,10 @@ class Binance {
         }
     }
 
-    async completeTask(accessToken, resourceId) {
+    async completeTask(accessToken, resourceId, axios) {
         const completeTaskUrl = "https://www.binance.com/bapi/growth/v1/friendly/growth-paas/mini-app-activity/third-party/task/complete";
         try {
-            const response = await this.axios.post(completeTaskUrl, {
+            const response = await axios.post(completeTaskUrl, {
                 resourceIdList: [resourceId],
                 referralCode: null
             }, {
@@ -216,8 +228,8 @@ class Binance {
         }
     }
 
-    async completeTasks(accessToken) {
-        const resourceIds = await this.getTaskList(accessToken);
+    async completeTasks(accessToken, axios) {
+        const resourceIds = await this.getTaskList(accessToken, axios);
         if (!resourceIds || resourceIds.length === 0) {
             this.log("No uncompleted tasks found", 'info');
             return;
@@ -225,7 +237,7 @@ class Binance {
 
         for (const resourceId of resourceIds) {
             if (resourceId !== 2058) {
-                const success = await this.completeTask(accessToken, resourceId);
+                const success = await this.completeTask(accessToken, resourceId, axios);
                 if (success) {
                     this.log(`Completed task: ${resourceId}`, 'success');
                 } else {
@@ -236,32 +248,30 @@ class Binance {
         }
     }
 
-    async playGameIfTicketsAvailable(queryString, accountIndex, firstName) {
-        console.log(`========== Account ${accountIndex} | ${firstName.green} ==========`);
-
-        const result = await this.callBinanceAPI(queryString);
+    async playGameIfTicketsAvailable() {
+        const axiosInstance = this.createAxiosInstance();
+        const result = await this.callBinanceAPI(this.queryString, axiosInstance);
         if (!result) return;
 
         const { userInfo, accessToken } = result;
         const totalGrade = userInfo.metaInfo.totalGrade;
-        let totalAttempts = userInfo.metaInfo.totalAttempts; 
-        let consumedAttempts = userInfo.metaInfo.consumedAttempts; 
-        let availableTickets = totalAttempts-consumedAttempts;
+        let availableTickets = userInfo.metaInfo.totalAttempts - userInfo.metaInfo.consumedAttempts;
 
         this.log(`Total points: ${totalGrade}`);
         this.log(`Available tickets: ${availableTickets}`);
-        await this.completeTasks(accessToken)
-        
+        await this.completeTasks(accessToken, axiosInstance);
         while (availableTickets > 0) {
-            this.log(`Starting game with ${availableTickets} available tickets`, 'info');
+            this.log(`Start the game with ${availableTickets} available tickets`, 'info');
             
-            if (await this.startGame(accessToken)) {
+            if (await this.startGame(accessToken, axiosInstance)) {
                 if (await this.gameData()) {
-                    await this.countdown(50);
+                    await new Promise(resolve => setTimeout(resolve, 50000));
                     
-                    if (await this.completeGame(accessToken)) {
+                    if (await this.completeGame(accessToken, axiosInstance)) {
                         availableTickets--;
                         this.log(`Remaining tickets: ${availableTickets}`, 'info');
+                        
+                        await new Promise(resolve => setTimeout(resolve, 3000));
                     } else {
                         break;
                     }
@@ -273,42 +283,74 @@ class Binance {
                 this.log("Cannot start the game", 'error');
                 break;
             }
-
-            if (availableTickets > 0) {
-                await new Promise(resolve => setTimeout(resolve, 3000));
-            }
         }
 
         if (availableTickets === 0) {
             this.log("All tickets used up", 'success');
         }
     }
-
-    async main() {
-        const dataFile = path.join(__dirname, 'data.txt');
-        const data = fs.readFileSync(dataFile, 'utf8')
-            .replace(/\r/g, '')
-            .split('\n')
-            .filter(Boolean);
-
-        while (true) {
-            for (let i = 0; i < data.length; i++) {
-                const queryString = data[i];
-                const userData = JSON.parse(decodeURIComponent(queryString.split('user=')[1].split('&')[0]));
-                const firstName = userData.first_name;
-
-                await this.playGameIfTicketsAvailable(queryString, i + 1, firstName);
-
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-
-            await this.countdown(60 * 60);
-        }
-    }
 }
 
-const client = new Binance();
-client.main().catch(err => {
-    client.log(err.message, 'error');
-    process.exit(1);
-});
+if (isMainThread) {
+    const dataFile = path.join(__dirname, 'data.txt');
+
+    const data = fs.readFileSync(dataFile, 'utf8')
+        .replace(/\r/g, '')
+        .split('\n')
+        .filter(Boolean);
+
+    const maxThreads = 8; // number of threads
+    const timeout = 10 * 60 * 1000;
+    const waitTime = 60 * 60 * 1000; // 1 hour
+
+    async function runWorkers() {
+        while (true) {
+            console.log(`If you use it, don't be afraid. If you're afraid, don't use it...`.yellow);
+            
+            for (let i = 0; i < data.length; i += maxThreads) {
+                const workerPromises = [];
+
+                for (let j = 0; j < maxThreads && i + j < data.length; j++) {
+                    const accountIndex = i + j;
+                    const queryString = data[accountIndex];
+
+                    const worker = new Worker(__filename, {
+                        workerData: { accountIndex, queryString}
+                    });
+
+                    const workerPromise = new Promise((resolve, reject) => {
+                        worker.on('message', resolve);
+                        worker.on('error', reject);
+                        worker.on('exit', (code) => {
+                            if (code !== 0) reject(new Error(`The stream is stopped with the code ${code}`));
+                        });
+
+                        setTimeout(() => {
+                            worker.terminate();
+                            reject(new Error('Worker timed out'));
+                        }, timeout);
+                    });
+
+                    workerPromises.push(workerPromise);
+                }
+
+                await Promise.allSettled(workerPromises);
+                await new Promise(resolve => setTimeout(resolve, 3 * 1000));
+            }
+
+            console.log(`All accounts processed. Waiting ${waitTime / 60000} minutes before the next round starts...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+    }
+
+    runWorkers().catch(console.error);
+} else {
+    const { accountIndex, queryString } = workerData;
+    const client = new Binance(accountIndex, queryString);
+    client.playGameIfTicketsAvailable().then(() => {
+        parentPort.postMessage('done');
+    }).catch(error => {
+        console.error(`Worker error: ${error.message}`);
+        parentPort.postMessage('error');
+    });
+}

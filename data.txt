@@ -1,2 +1,0 @@
-query_id=xxxx
-user_id=xxxx
