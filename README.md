@@ -15,8 +15,7 @@ git clone https://github.com/officialputuid/moonbix && cd moonbix && npm i
 - Set proxies in `proxy.txt`: `http://user:pass@ip:port`.
 
 ## Changelog
-- Added multi-thread support (`moonbix-mt.js & moonbix-mt-proxy`).
-- Implemented user agent rotation.
+- Update API
 - Automated check-in process.
 - Fixed ticket display issues.
 
@@ -25,5 +24,3 @@ git clone https://github.com/officialputuid/moonbix && cd moonbix && npm i
 |--------------------------|---------------------------------------------|
 | `node moonbix`           | Start Moonbix.                              |
 | `node moonbix-proxy`     | Start with proxy support.                   |
-| `node moonbix-mt`        | Start with multi-threading.                 |
-| `node moonbix-mt-proxy`  | Start with multi-threading + proxy support. |
