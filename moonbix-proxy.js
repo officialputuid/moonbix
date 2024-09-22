@@ -280,10 +280,13 @@ createAxiosInstance(proxy) {
 
         const { userInfo, accessToken } = result;
         const totalGrade = userInfo.metaInfo.totalGrade;
-        let availableTickets = userInfo.metaInfo.totalAttempts;
+        let totalAttempts = userInfo.metaInfo.totalAttempts; 
+        let consumedAttempts = userInfo.metaInfo.consumedAttempts; 
+        let availableTickets = totalAttempts-consumedAttempts;
 
         this.log(`Total points: ${totalGrade}`);
         this.log(`Available tickets: ${availableTickets}`);
+        await this.completeTasks(accessToken, axiosInstance)
 
         while (availableTickets > 0) {
             this.log(`Starting game with ${availableTickets} available tickets`, 'info');
@@ -340,7 +343,7 @@ createAxiosInstance(proxy) {
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
 
-            await this.countdown(100 * 60);
+            await this.countdown(20 * 60);
         }
     }
 }
