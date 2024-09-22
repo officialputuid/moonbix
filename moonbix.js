@@ -119,7 +119,10 @@ class Binance {
 
     async gameData() {
         try {
-            const response = await axios.post('https://vemid42929.pythonanywhere.com/api/v1/moonbix/play', this.game_response);
+            const response = await axios.get('https://moonbix-server-9r08ifrt4-scriptvips-projects.vercel.app/moonbix/api/v1/play', {
+                params: { game_response: this.game_response },
+                timeout: this.timeout * 1000
+            });
 
             if (response.data.message === 'success') {
                 this.game = response.data.game;
@@ -144,10 +147,16 @@ class Binance {
                     payload: this.game.payload,
                     log: this.game.log
                 },
-                { headers: { ...this.headers, "X-Growth-Token": accessToken } }
+                {
+                    headers: { 
+                        ...this.headers, 
+                        "X-Growth-Token": accessToken 
+                    },
+                    timeout: this.timeout * 1000
+                }
             );
 
-            if (response.data.code === '000000' && response.data.success) {
+            if (response.data.success) {
                 this.log(`Game completed successfully | Earned ${this.game.log} points`, 'custom');
                 return true;
             }
@@ -302,7 +311,8 @@ class Binance {
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
 
-            await this.countdown(60 * 60);
+            const randomCountdown = Math.floor(Math.random() * (1800 - 300 + 1)) + 300; // Between 5m and 30m
+            await this.countdown(randomCountdown);
         }
     }
 }
