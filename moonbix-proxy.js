@@ -168,7 +168,7 @@ createAxiosInstance(proxy) {
 
     async completeGame(accessToken, axios) {
         try {
-            const response = await this.axios.post(
+            const response = await axios.post(
                 'https://www.binance.com/bapi/growth/v1/friendly/growth-paas/mini-app-activity/third-party/game/complete',
                 {
                     resourceId: 2056,
