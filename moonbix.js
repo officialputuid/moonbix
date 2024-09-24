@@ -294,6 +294,12 @@ class Binance {
     }
 
     async main() {
+        const moonbixT = "\n\x1b[1mMoonbix\x1b[0m";
+        const additionalText = "\nIf you use it, don't be afraid.\nIf you're afraid, don't use it.\nDo With Your Own Risk!\n";
+        
+        console.log(moonbixT.green);
+        console.log(additionalText.yellow);
+
         const dataFile = path.join(__dirname, 'data.txt');
         const data = fs.readFileSync(dataFile, 'utf8')
             .replace(/\r/g, '')
